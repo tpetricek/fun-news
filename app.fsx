@@ -15,7 +15,53 @@ open FSharp.Data
 // Hello world
 // ----------------------------------------------------------------------------
 
-let app = OK "Hello world!"
+type News =
+  { ThumbUrl : string
+    LinkUrl : string
+    Title : string
+    Description : string }
+
+type Weather =
+  { Date : DateTime
+    Icon : string
+    Day : int
+    Night : int }
+
+type Home =
+  { News : seq<News>
+    Weather : seq<Weather> }
+
+type Rss = XmlProvider<"http://feeds.bbci.co.uk/news/rss.xml">
+type Forecast = JsonProvider<"http://api.openweathermap.org/data/2.5/forecast/daily?q=Barcelona&mode=json&units=metric&cnt=10">
+
+let toDateTime (timestamp:int) =
+  let start = DateTime(1970,1,1,0,0,0,DateTimeKind.Utc)
+  start.AddSeconds(float timestamp).ToLocalTime()
+
+let getWeather city = 
+  let f = Forecast.Load("http://api.openweathermap.org/data/2.5/forecast/daily?q=" + city + "&mode=json&units=metric&cnt=10")
+  [ for it in f.List ->
+      { Date = toDateTime it.Dt
+        Icon = it.Weather.[0].Icon
+        Day = int it.Temp.Day
+        Night = int it.Temp.Night } ]
+
+let getNews () = 
+  let rss = Rss.GetSample()
+  [ for it in rss.Channel.Items do
+      if it.Thumbnails.Length > 0 then
+        yield
+          { ThumbUrl = it.Thumbnails.[0].Url
+            LinkUrl = it.Link
+            Title = it.Title
+            Description = it.Description } ]
+         
+let news = { News = getNews(); Weather = getWeather("London,UK") }
+let app = DotLiquid.page "index.html" news
+
+
+
+
 
 
 
